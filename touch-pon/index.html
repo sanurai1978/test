@@ -1,0 +1,811 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="タッチでポン">
+<meta name="theme-color" content="#ffe9a8">
+<title>タッチでポン！</title>
+<style>
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%;overflow:hidden;overscroll-behavior:none}
+  body{
+    font-family:"Hiragino Maru Gothic ProN","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+    background:#fff3c4;color:#4a3b2a;
+    -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
+  }
+  button{font:inherit;color:inherit;cursor:pointer}
+
+  /* ---------- ステージ ---------- */
+  #stage{position:fixed;inset:0;overflow:hidden;touch-action:none;transition:background .4s}
+  .bg0{background:radial-gradient(circle at 20% 15%,#fff 0 6%,transparent 7%),radial-gradient(circle at 75% 25%,#fff 0 4%,transparent 5%),linear-gradient(#8fd3ff,#d8f3ff 70%,#a7e07a 70%,#7cc95a)}
+  .bg1{background:radial-gradient(#ffd6e7 2px,transparent 3px) 0 0/34px 34px,linear-gradient(135deg,#fff0f6,#ffe3f0)}
+  .bg2{background:radial-gradient(#fff 1.5px,transparent 2px) 0 0/60px 60px,radial-gradient(#fff8 1px,transparent 2px) 30px 30px/60px 60px,linear-gradient(#141e4a,#3b2c7a)}
+  .bg3{background:repeating-linear-gradient(45deg,#ffe9a8 0 30px,#fff3c4 30px 60px)}
+  .bg4{background:linear-gradient(#5ec8f0,#2b8fd6 55%,#f5d77a 55%,#e8c25a)}
+
+  .item{position:absolute;transform-origin:center;will-change:transform}
+  .item .inner{display:block;transform-origin:50% 90%}
+  .item img{display:block;width:100%;height:auto;border-radius:18px;border:6px solid #fff;
+    box-shadow:0 8px 18px rgba(0,0,0,.25);pointer-events:none;-webkit-user-drag:none}
+  .item .emoji{display:block;line-height:1;text-align:center;filter:drop-shadow(0 6px 6px rgba(0,0,0,.25));pointer-events:none}
+  body.edit .item .inner{outline:4px dashed #ff7a59;outline-offset:6px;border-radius:20px}
+
+  /* タップ時のアニメーション */
+  .a-boing{animation:boing .6s}
+  .a-jump{animation:jump .6s}
+  .a-wiggle{animation:wiggle .6s}
+  .a-spin{animation:spin .7s}
+  @keyframes boing{0%{transform:scale(1)}25%{transform:scale(1.3,.75)}50%{transform:scale(.85,1.25)}75%{transform:scale(1.08,.95)}100%{transform:scale(1)}}
+  @keyframes jump{0%,100%{transform:translateY(0) scale(1)}15%{transform:translateY(0) scale(1.15,.85)}45%{transform:translateY(-35%) scale(.95,1.08)}75%{transform:translateY(0) scale(1.1,.9)}}
+  @keyframes wiggle{0%,100%{transform:rotate(0)}20%{transform:rotate(-14deg) scale(1.1)}40%{transform:rotate(12deg) scale(1.15)}60%{transform:rotate(-9deg) scale(1.1)}80%{transform:rotate(5deg)}}
+  @keyframes spin{0%{transform:rotate(0) scale(1)}50%{transform:rotate(200deg) scale(1.25)}100%{transform:rotate(360deg) scale(1)}}
+
+  .bubble{position:absolute;transform:translate(-50%,-100%);background:#fff;border:5px solid #4a3b2a;border-radius:30px;
+    padding:.3em .8em;font-weight:900;white-space:nowrap;pointer-events:none;z-index:9000;
+    box-shadow:0 6px 0 rgba(0,0,0,.15)}
+  .bubble::after{content:"";position:absolute;left:50%;bottom:-18px;margin-left:-12px;border:12px solid transparent;border-top:14px solid #4a3b2a}
+  .particle{position:absolute;pointer-events:none;z-index:8999;font-size:44px;line-height:1;margin:-22px 0 0 -22px}
+  .ripple{position:absolute;width:30px;height:30px;margin:-15px 0 0 -15px;border-radius:50%;border:6px solid #fff;pointer-events:none;z-index:8998}
+
+  /* ---------- ツールバー ---------- */
+  #lock{position:fixed;right:max(14px,env(safe-area-inset-right));top:max(14px,env(safe-area-inset-top));z-index:9500;
+    width:58px;height:58px;border-radius:50%;border:none;background:#ffffffaa;font-size:28px;
+    box-shadow:0 3px 8px rgba(0,0,0,.2);touch-action:none}
+  #lock svg{position:absolute;inset:0;transform:rotate(-90deg);pointer-events:none}
+  #lock circle{fill:none;stroke:#ff7a59;stroke-width:5;stroke-dasharray:170;stroke-dashoffset:170}
+  #lock.holding circle{transition:stroke-dashoffset .9s linear;stroke-dashoffset:0}
+  #hint{position:fixed;right:84px;top:max(26px,calc(env(safe-area-inset-top) + 12px));z-index:9500;background:#4a3b2acc;color:#fff;
+    padding:6px 12px;border-radius:20px;font-size:14px;opacity:0;transition:opacity .3s;pointer-events:none}
+  #hint.show{opacity:1}
+  body.edit #lock,body.edit #hint{display:none}
+
+  #toolbar{position:fixed;left:50%;transform:translateX(-50%);bottom:max(16px,env(safe-area-inset-bottom));z-index:9500;
+    display:none;gap:10px;padding:10px;border-radius:24px;background:#ffffffee;box-shadow:0 6px 20px rgba(0,0,0,.25)}
+  body.edit #toolbar{display:flex}
+  #toolbar button{border:none;border-radius:16px;padding:12px 16px;font-size:18px;font-weight:700;background:#ffe9a8;white-space:nowrap}
+  #toolbar #done{background:#7cd67c;color:#fff}
+  #editBanner{position:fixed;left:50%;transform:translateX(-50%);top:max(14px,env(safe-area-inset-top));z-index:9500;
+    display:none;background:#ff7a59;color:#fff;font-weight:700;padding:8px 18px;border-radius:20px;font-size:15px;box-shadow:0 3px 8px rgba(0,0,0,.2)}
+  body.edit #editBanner{display:block}
+
+  /* ---------- シート（設定画面） ---------- */
+  .sheet{position:fixed;inset:0;z-index:9800;background:rgba(40,30,20,.45);display:flex;align-items:flex-end;justify-content:center}
+  .sheet[hidden]{display:none}
+  .panel{width:min(640px,100%);max-height:92%;overflow:auto;-webkit-overflow-scrolling:touch;background:#fffaf0;border-radius:28px 28px 0 0;
+    padding:22px 22px max(22px,env(safe-area-inset-bottom));box-shadow:0 -6px 30px rgba(0,0,0,.3);touch-action:pan-y;
+    animation:up .25s ease-out}
+  @keyframes up{from{transform:translateY(40px);opacity:0}}
+  .panel h2{margin:0 0 14px;font-size:22px}
+  .field{margin:0 0 18px}
+  .field>.lbl{display:block;font-weight:700;margin-bottom:8px;font-size:16px}
+  .panel input[type=text]{width:100%;font-size:24px;padding:12px 14px;border-radius:14px;border:3px solid #e8d9b8;background:#fff;
+    -webkit-user-select:text;user-select:text;font-family:inherit}
+  .panel input[type=range]{width:100%;height:36px;accent-color:#ff7a59}
+  .seg,.chips{display:flex;flex-wrap:wrap;gap:8px}
+  .seg button,.chips button{border:3px solid #e8d9b8;background:#fff;border-radius:14px;padding:10px 14px;font-size:16px;font-weight:700}
+  .seg button.on,.chips button.on{border-color:#ff7a59;background:#ffe3d9}
+  .sub{margin-top:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .sub[hidden]{display:none}
+  .big{border:none;border-radius:16px;padding:12px 18px;font-size:17px;font-weight:700;background:#ffe9a8}
+  #recBtn.rec{background:#ff4d4d;color:#fff;animation:pulse 1s infinite}
+  @keyframes pulse{50%{transform:scale(1.06)}}
+  .btns{display:flex;justify-content:space-between;gap:10px;margin-top:6px}
+  #delBtn{background:#ffd9d9}
+  #closeBtn{background:#7cd67c;color:#fff;flex:1}
+  .note{font-size:13px;opacity:.7}
+  .stamps{display:grid;grid-template-columns:repeat(auto-fill,minmax(76px,1fr));gap:10px}
+  .stamps button{border:none;background:#fff;border-radius:18px;padding:8px 4px;box-shadow:0 2px 6px rgba(0,0,0,.12)}
+  .stamps .e{display:block;font-size:44px;line-height:1.1}
+  .stamps .t{display:block;font-size:11px;font-weight:700;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+</style>
+</head>
+<body>
+<div id="stage" class="bg0"></div>
+
+<button id="lock" aria-label="ながおしで へんしゅう">🔒<svg viewBox="0 0 58 58"><circle cx="29" cy="29" r="26"/></svg></button>
+<div id="hint">ながおしで へんしゅう</div>
+
+<div id="editBanner">✏️ へんしゅうモード ・ しゃしんをタップで せってい</div>
+<div id="toolbar">
+  <button id="addPhoto">📷 しゃしん</button>
+  <button id="addStamp">😀 スタンプ</button>
+  <button id="bgBtn">🎨 はいけい</button>
+  <button id="done">✅ あそぶ</button>
+</div>
+<input id="file" type="file" accept="image/*" multiple hidden>
+
+<!-- 写真ごとの設定 -->
+<div id="sheet" class="sheet" hidden>
+  <div class="panel">
+    <h2>🔊 タッチしたときの おと</h2>
+    <div class="field">
+      <span class="lbl">ことば（ふきだし ＆ よみあげ）</span>
+      <input id="fText" type="text" placeholder="うんこっこ！" maxlength="30">
+    </div>
+    <div class="field">
+      <span class="lbl">こえ</span>
+      <div class="seg" id="fVoice">
+        <button data-v="tts">🗣 よみあげ</button>
+        <button data-v="rec">🎤 じぶんの こえ</button>
+        <button data-v="none">🔇 なし</button>
+      </div>
+      <div class="sub" id="ttsBox">
+        <span>こえの たかさ</span>
+        <input id="fPitch" type="range" min="0.5" max="2" step="0.1" style="flex:1;min-width:140px">
+        <button class="big" id="tryBtn">▶ ためす</button>
+      </div>
+      <div class="sub" id="recBox">
+        <button class="big" id="recBtn">● ろくおん</button>
+        <button class="big" id="playRecBtn">▶ きく</button>
+        <span id="recState" class="note"></span>
+      </div>
+    </div>
+    <div class="field">
+      <span class="lbl">こうかおん（タップで ためせる）</span>
+      <div class="chips" id="fFx"></div>
+    </div>
+    <div class="field">
+      <span class="lbl">おおきさ（2ほんゆびで ピンチ・かいてんも できるよ）</span>
+      <input id="fSize" type="range" min="0.08" max="0.9" step="0.01">
+    </div>
+    <div class="btns">
+      <button class="big" id="delBtn">🗑 けす</button>
+      <button class="big" id="closeBtn">OK</button>
+    </div>
+  </div>
+</div>
+
+<!-- スタンプ選択 -->
+<div id="stampSheet" class="sheet" hidden>
+  <div class="panel">
+    <h2>😀 スタンプを えらんでね</h2>
+    <div class="stamps" id="stampGrid"></div>
+    <div class="btns" style="margin-top:16px"><button class="big" id="stampClose" style="flex:1">とじる</button></div>
+  </div>
+</div>
+
+<script>
+'use strict';
+/* =========================================================
+   タッチでポン！ - 写真をタッチすると音が出るおもちゃ
+   ========================================================= */
+
+const $ = s => document.querySelector(s);
+const stage = $('#stage');
+const rand = (a, b) => a + Math.random() * (b - a);
+const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+/* ---------- データ ---------- */
+let items = [];             // {id,kind,img|char,x,y,s,rot,z,text,voiceMode,pitch,voice,fx}
+const views = new Map();    // id -> {el, inner, url}
+let mode = 'play';
+
+const STAMPS = [
+  ['💩', 'うんこっこ！', 'puu'], ['🐶', 'わんわん！', 'pon'], ['🐱', 'にゃーん', 'kira'],
+  ['🚗', 'ブッブー！', 'pyun'], ['🚃', 'ガタンゴトン', 'doon'], ['🦁', 'ガオー！', 'doon'],
+  ['🐘', 'パオーン！', 'boyon'], ['🐸', 'ケロケロ', 'piyo'], ['🐷', 'ブーブー', 'puu'],
+  ['🐔', 'コケコッコー！', 'piyo'], ['👻', 'おばけだぞー', 'boyon'], ['🚀', 'はっしゃ！', 'pyun'],
+  ['🍌', 'バナナ！', 'pon'], ['🍓', 'いちご だいすき', 'kira'], ['🍙', 'おにぎり ぱくっ', 'pon'],
+  ['🎂', 'おめでとう！', 'fanfare'], ['🦖', 'がおがお〜！', 'doon'], ['🐟', 'ぴちぴち', 'piyo'],
+  ['⚽', 'ゴール！', 'fanfare'], ['🌈', 'にじ きれい', 'kira'],
+];
+
+/* ---------- 保存（IndexedDB） ---------- */
+const DB = {
+  db: null,
+  open() {
+    return new Promise(res => {
+      try {
+        const r = indexedDB.open('touch-pon', 1);
+        r.onupgradeneeded = () => r.result.createObjectStore('items', { keyPath: 'id' });
+        r.onsuccess = () => { this.db = r.result; res(); };
+        r.onerror = () => res();
+      } catch (e) { res(); }
+    });
+  },
+  tx(fn) {
+    if (!this.db) return Promise.resolve();
+    return new Promise(res => {
+      try {
+        const t = this.db.transaction('items', 'readwrite');
+        const req = fn(t.objectStore('items'));
+        t.oncomplete = () => res(req && req.result);
+        t.onerror = t.onabort = () => res();
+      } catch (e) { res(); }
+    });
+  },
+  all() { return this.tx(s => s.getAll()); },
+  put(it) { return this.tx(s => s.put(it)); },
+  del(id) { return this.tx(s => s.delete(id)); },
+};
+const saveTimers = new Map();
+function saveSoon(it) {
+  clearTimeout(saveTimers.get(it.id));
+  saveTimers.set(it.id, setTimeout(() => DB.put(it), 300));
+}
+const pref = {
+  get(k, d) { try { const v = localStorage.getItem('tp-' + k); return v == null ? d : v; } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem('tp-' + k, v); } catch (e) {} },
+};
+
+/* ---------- 音（Web Audio） ---------- */
+let ctx = null, master = null;
+function audio() {
+  if (!ctx) {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    ctx = new AC();
+    master = ctx.createDynamicsCompressor();
+    master.connect(ctx.destination);
+  }
+  if (ctx.state !== 'running') ctx.resume();
+  return ctx;
+}
+// iOS対策：最初のタッチで無音を鳴らして音声をアンロック
+let unlocked = false;
+function unlockAudio() {
+  if (unlocked) return;
+  unlocked = true;
+  const c = audio();
+  const b = c.createBuffer(1, 1, 22050), s = c.createBufferSource();
+  s.buffer = b; s.connect(c.destination); s.start(0);
+}
+
+function tone(type, f0, f1, dur, vol, at = 0) {
+  const c = audio(), t = c.currentTime + at;
+  const o = c.createOscillator(), g = c.createGain();
+  o.type = type;
+  o.frequency.setValueAtTime(f0, t);
+  if (f1 !== f0) o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(vol, t + 0.01);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g).connect(master);
+  o.start(t); o.stop(t + dur + 0.05);
+  return o;
+}
+function wobble(o, rate, depth, at, dur) {
+  const c = audio(), l = c.createOscillator(), lg = c.createGain();
+  l.frequency.value = rate; lg.gain.value = depth;
+  l.connect(lg).connect(o.frequency);
+  l.start(c.currentTime + at); l.stop(c.currentTime + at + dur + 0.05);
+}
+function noise(dur, vol, at = 0, freq = 1000) {
+  const c = audio(), t = c.currentTime + at;
+  const buf = c.createBuffer(1, Math.floor(c.sampleRate * dur), c.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  const s = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain();
+  s.buffer = buf; f.type = 'lowpass'; f.frequency.value = freq;
+  g.gain.setValueAtTime(vol, t);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  s.connect(f).connect(g).connect(master);
+  s.start(t);
+}
+
+const FX = {
+  none:    { label: 'なし', play() {} },
+  pon:     { label: '🎈 ポン', play() { tone('sine', 700, 160, 0.18, 0.6); } },
+  boyon:   { label: '🌀 ボヨヨーン', play() { const o = tone('sine', 140, 420, 0.8, 0.5); wobble(o, 11, 60, 0, 0.8); } },
+  puu:     { label: '💨 ぷぅ〜', play() {
+              const c = audio(), t = c.currentTime;
+              const o = c.createOscillator(), f = c.createBiquadFilter(), g = c.createGain();
+              o.type = 'sawtooth';
+              o.frequency.setValueAtTime(115, t);
+              o.frequency.exponentialRampToValueAtTime(65, t + 0.7);
+              f.type = 'lowpass'; f.frequency.value = 450;
+              g.gain.setValueAtTime(0.0001, t);
+              g.gain.exponentialRampToValueAtTime(0.7, t + 0.03);
+              g.gain.setValueAtTime(0.6, t + 0.45);
+              g.gain.exponentialRampToValueAtTime(0.0001, t + 0.75);
+              o.connect(f).connect(g).connect(master);
+              o.start(t); o.stop(t + 0.8);
+              wobble(o, 28, 25, 0, 0.75);
+              noise(0.5, 0.15, 0, 300);
+            } },
+  kira:    { label: '✨ キラキラ', play() { [1568, 2093, 2637, 3136, 4186].forEach((f, i) => tone('triangle', f, f, 0.35, 0.18, i * 0.07)); } },
+  doon:    { label: '💥 ドーン', play() { tone('sine', 170, 38, 0.9, 0.9); noise(0.35, 0.5, 0, 900); } },
+  piyo:    { label: '🐤 ピヨピヨ', play() { [0, 0.16].forEach(a => tone('sine', 2200, 3400, 0.09, 0.35, a)); } },
+  pyun:    { label: '🚀 ピューン', play() { tone('square', 1800, 140, 0.45, 0.12); } },
+  pikon:   { label: '💡 ピコーン', play() { tone('square', 988, 988, 0.08, 0.15); tone('square', 1319, 1319, 0.4, 0.15, 0.08); } },
+  fanfare: { label: '🎺 ファンファーレ', play() {
+              [[523, 0, .12], [659, .12, .12], [784, .24, .12], [1047, .36, .5]].forEach(([f, a, d]) => {
+                tone('square', f, f, d, 0.12, a); tone('triangle', f, f, d, 0.2, a);
+              });
+            } },
+};
+const FX_KEYS = Object.keys(FX).filter(k => k !== 'none');
+
+// 背景タップ用：ペンタトニックの木琴
+const PENTA = [523, 587, 659, 784, 880, 1047, 1175, 1319];
+function xylo() {
+  const f = pick(PENTA);
+  tone('sine', f, f, 0.5, 0.35);
+  tone('sine', f * 4, f * 4, 0.08, 0.08);
+}
+
+/* ---------- よみあげ（音声合成） ---------- */
+let jaVoice = null;
+function findVoice() {
+  if (!('speechSynthesis' in window)) return;
+  const vs = speechSynthesis.getVoices().filter(v => /^ja/i.test(v.lang));
+  jaVoice = vs.find(v => /Kyoko|O-Ren|Google/i.test(v.name)) || vs[0] || null;
+}
+if ('speechSynthesis' in window) { findVoice(); speechSynthesis.onvoiceschanged = findVoice; }
+function speak(text, pitch = 1.5) {
+  if (!text || !('speechSynthesis' in window)) return;
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = 'ja-JP';
+  if (jaVoice) u.voice = jaVoice;
+  u.pitch = pitch; u.rate = 1.05; u.volume = 1;
+  speechSynthesis.speak(u);
+}
+
+/* ---------- 録音した声 ---------- */
+const voiceBuffers = new Map(); // id -> AudioBuffer
+async function playVoice(it) {
+  if (!it.voice) return false;
+  const c = audio();
+  let buf = voiceBuffers.get(it.id);
+  if (!buf) {
+    try {
+      const ab = await it.voice.arrayBuffer();
+      buf = await new Promise((res, rej) => c.decodeAudioData(ab, res, rej));
+      voiceBuffers.set(it.id, buf);
+    } catch (e) {
+      // デコードできないときは <audio> で再生
+      const a = new Audio(URL.createObjectURL(it.voice));
+      a.play().catch(() => {});
+      return true;
+    }
+  }
+  const s = c.createBufferSource(), g = c.createGain();
+  g.gain.value = 1.6;
+  s.buffer = buf; s.connect(g).connect(master); s.start();
+  return true;
+}
+
+/* ---------- 表示 ---------- */
+function stageSize() { return { W: stage.clientWidth, H: stage.clientHeight }; }
+
+function makeView(it) {
+  const el = document.createElement('div');
+  el.className = 'item';
+  el.dataset.id = it.id;
+  const inner = document.createElement('div');
+  inner.className = 'inner';
+  let url = null;
+  if (it.kind === 'photo') {
+    url = URL.createObjectURL(it.img);
+    const img = new Image();
+    img.src = url; img.alt = ''; img.draggable = false;
+    inner.appendChild(img);
+  } else {
+    const sp = document.createElement('span');
+    sp.className = 'emoji';
+    sp.textContent = it.char;
+    inner.appendChild(sp);
+  }
+  inner.addEventListener('animationend', () => inner.className = 'inner');
+  el.appendChild(inner);
+  stage.appendChild(el);
+  views.set(it.id, { el, inner, url });
+  layout(it);
+}
+
+function layout(it) {
+  const v = views.get(it.id);
+  if (!v) return;
+  const { W, H } = stageSize();
+  const w = it.s * Math.min(W, H);
+  v.el.style.width = w + 'px';
+  v.el.style.left = (it.x * W) + 'px';
+  v.el.style.top = (it.y * H) + 'px';
+  v.el.style.zIndex = it.z;
+  v.el.style.transform = `translate(-50%,-50%) rotate(${it.rot}deg)`;
+  if (it.kind === 'emoji') v.inner.firstChild.style.fontSize = (w * 0.85) + 'px';
+}
+const layoutAll = () => items.forEach(layout);
+window.addEventListener('resize', layoutAll);
+
+function bringFront(it) {
+  const top = items.reduce((m, o) => Math.max(m, o.z), 0);
+  if (it.z !== top || items.filter(o => o.z === top).length > 1) {
+    it.z = top + 1; layout(it); saveSoon(it);
+  }
+}
+
+/* ---------- タッチしたとき ---------- */
+const ANIMS = ['a-boing', 'a-jump', 'a-wiggle', 'a-spin'];
+const SPARKS = ['⭐', '✨', '💖', '🌟', '🎵', '💫'];
+
+function hit(it, x, y) {
+  // 音
+  FX[it.fx]?.play();
+  if (it.voiceMode === 'rec' && it.voice) playVoice(it);
+  else if (it.voiceMode !== 'none' && it.text) speak(it.text, it.pitch);
+
+  // うごき
+  const v = views.get(it.id);
+  v.inner.className = 'inner';
+  void v.inner.offsetWidth;
+  v.inner.classList.add(pick(ANIMS));
+
+  // ふきだし
+  if (it.text) showBubble(it, v);
+
+  // キラキラ
+  const set = it.kind === 'emoji' ? [it.char, ...SPARKS] : SPARKS;
+  burst(x, y, set, 7);
+}
+
+function showBubble(it, v) {
+  v.bubble?.remove();
+  const { W, H } = stageSize();
+  const r = v.el.getBoundingClientRect();
+  const b = document.createElement('div');
+  b.className = 'bubble';
+  b.textContent = it.text;
+  b.style.fontSize = clamp(Math.min(W, H) * 0.05, 22, 56) + 'px';
+  stage.appendChild(b);
+  const bw = b.offsetWidth;
+  const cx = clamp(r.left + r.width / 2, bw / 2 + 8, W - bw / 2 - 8);
+  const top = Math.max(r.top - 10, b.offsetHeight + 24);
+  b.style.left = cx + 'px';
+  b.style.top = top + 'px';
+  b.animate([
+    { transform: 'translate(-50%,-100%) scale(.3)', opacity: 0 },
+    { transform: 'translate(-50%,-100%) scale(1.15)', opacity: 1, offset: .25 },
+    { transform: 'translate(-50%,-100%) scale(1)', opacity: 1, offset: .4 },
+    { transform: 'translate(-50%,-100%) scale(1)', opacity: 1, offset: .85 },
+    { transform: 'translate(-50%,-115%) scale(1)', opacity: 0 },
+  ], { duration: 1800, easing: 'ease-out' }).onfinish = () => b.remove();
+  v.bubble = b;
+}
+
+function burst(x, y, set, n) {
+  for (let i = 0; i < n; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    p.textContent = pick(set);
+    p.style.left = x + 'px'; p.style.top = y + 'px';
+    stage.appendChild(p);
+    const a = rand(0, Math.PI * 2), d = rand(80, 200);
+    p.animate([
+      { transform: 'translate(0,0) scale(.3) rotate(0)', opacity: 1 },
+      { transform: `translate(${Math.cos(a) * d}px,${Math.sin(a) * d - 40}px) scale(${rand(.8, 1.4)}) rotate(${rand(-180, 180)}deg)`, opacity: 0 },
+    ], { duration: rand(700, 1100), easing: 'cubic-bezier(.2,.8,.3,1)' }).onfinish = () => p.remove();
+  }
+}
+
+function bgTap(x, y) {
+  xylo();
+  const r = document.createElement('div');
+  r.className = 'ripple';
+  r.style.left = x + 'px'; r.style.top = y + 'px';
+  stage.appendChild(r);
+  r.animate([{ transform: 'scale(.3)', opacity: 1 }, { transform: 'scale(4)', opacity: 0 }],
+    { duration: 600, easing: 'ease-out' }).onfinish = () => r.remove();
+  burst(x, y, ['✨', '⭐'], 3);
+}
+
+/* ---------- ステージのタッチ処理 ---------- */
+let gesture = null; // 編集モードのドラッグ / ピンチ
+const itemOf = el => items.find(o => o.id === el.dataset.id);
+
+function snapshot(g) {
+  const pts = [...g.pts.values()];
+  g.base = { x: g.it.x, y: g.it.y, s: g.it.s, rot: g.it.rot };
+  if (pts.length === 1) {
+    g.c0 = pts[0];
+  } else {
+    const [a, b] = pts;
+    g.c0 = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+    g.d0 = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+    g.a0 = Math.atan2(b.y - a.y, b.x - a.x);
+  }
+}
+
+stage.addEventListener('pointerdown', e => {
+  unlockAudio();
+  const el = e.target.closest('.item');
+  if (mode === 'play') {
+    if (el) hit(itemOf(el), e.clientX, e.clientY);
+    else bgTap(e.clientX, e.clientY);
+    return;
+  }
+  if (!el) return;
+  e.preventDefault();
+  const it = itemOf(el);
+  if (!gesture || gesture.it !== it) {
+    if (gesture) return; // 別の写真を操作中
+    gesture = { it, pts: new Map(), moved: false, t0: performance.now() };
+    bringFront(it);
+  }
+  if (gesture.pts.size >= 2) return;
+  gesture.pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  snapshot(gesture);
+});
+
+window.addEventListener('pointermove', e => {
+  const g = gesture;
+  if (!g || !g.pts.has(e.pointerId)) return;
+  g.pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  const { W, H } = stageSize();
+  const pts = [...g.pts.values()];
+  const it = g.it;
+  if (pts.length === 1) {
+    const dx = pts[0].x - g.c0.x, dy = pts[0].y - g.c0.y;
+    if (Math.abs(dx) + Math.abs(dy) > 10) g.moved = true;
+    if (!g.moved) return;
+    it.x = clamp(g.base.x + dx / W, 0, 1);
+    it.y = clamp(g.base.y + dy / H, 0, 1);
+  } else {
+    g.moved = true;
+    const [a, b] = pts;
+    const c = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+    const d = Math.hypot(b.x - a.x, b.y - a.y);
+    const ang = Math.atan2(b.y - a.y, b.x - a.x);
+    it.s = clamp(g.base.s * d / g.d0, 0.08, 1.2);
+    it.rot = g.base.rot + (ang - g.a0) * 180 / Math.PI;
+    it.x = clamp(g.base.x + (c.x - g.c0.x) / W, 0, 1);
+    it.y = clamp(g.base.y + (c.y - g.c0.y) / H, 0, 1);
+  }
+  layout(it);
+});
+
+function endPointer(e, cancelled) {
+  const g = gesture;
+  if (!g || !g.pts.has(e.pointerId)) return;
+  g.pts.delete(e.pointerId);
+  if (g.pts.size === 0) {
+    gesture = null;
+    saveSoon(g.it);
+    if (!cancelled && !g.moved && performance.now() - g.t0 < 500) openSheet(g.it);
+  } else {
+    snapshot(g);
+  }
+}
+window.addEventListener('pointerup', e => endPointer(e, false));
+window.addEventListener('pointercancel', e => endPointer(e, true));
+
+// iOSのピンチズーム・ダブルタップズームを止める
+['gesturestart', 'gesturechange', 'gestureend'].forEach(t => document.addEventListener(t, e => e.preventDefault()));
+document.addEventListener('dblclick', e => e.preventDefault());
+document.addEventListener('contextmenu', e => e.preventDefault());
+
+/* ---------- モード切りかえ（ながおしで編集） ---------- */
+const lock = $('#lock'), hint = $('#hint');
+let holdTimer = null, hintTimer = null;
+lock.addEventListener('pointerdown', e => {
+  e.preventDefault();
+  unlockAudio();
+  lock.classList.add('holding');
+  hint.classList.add('show');
+  clearTimeout(hintTimer);
+  holdTimer = setTimeout(() => { cancelHold(); setMode('edit'); }, 900);
+});
+function cancelHold() {
+  clearTimeout(holdTimer);
+  lock.classList.remove('holding');
+  hintTimer = setTimeout(() => hint.classList.remove('show'), 1200);
+}
+['pointerup', 'pointercancel', 'pointerleave'].forEach(t => lock.addEventListener(t, cancelHold));
+
+function setMode(m) {
+  mode = m;
+  document.body.classList.toggle('edit', m === 'edit');
+  if (m === 'edit') FX.pikon.play();
+}
+$('#done').onclick = () => { setMode('play'); FX.kira.play(); };
+
+/* ---------- 写真の追加 ---------- */
+$('#addPhoto').onclick = () => $('#file').click();
+$('#file').addEventListener('change', async e => {
+  const files = [...e.target.files];
+  e.target.value = '';
+  let last = null;
+  for (const f of files) {
+    try {
+      const blob = await shrink(f, 1000);
+      last = addItem({ kind: 'photo', img: blob, text: '', fx: pick(FX_KEYS) });
+    } catch (err) { alert('しゃしんを よみこめませんでした'); }
+  }
+  if (files.length === 1 && last) openSheet(last);
+});
+
+function shrink(file, max) {
+  return new Promise((res, rej) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+      const cv = document.createElement('canvas');
+      cv.width = Math.round(img.naturalWidth * k);
+      cv.height = Math.round(img.naturalHeight * k);
+      cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+      const type = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+      cv.toBlob(b => b ? res(b) : rej(new Error('toBlob')), type, 0.85);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); rej(new Error('load')); };
+    img.src = url;
+  });
+}
+
+function addItem(p) {
+  const it = Object.assign({
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+    x: rand(0.3, 0.7), y: rand(0.3, 0.65), s: p.kind === 'emoji' ? 0.22 : 0.32, rot: rand(-8, 8),
+    z: items.reduce((m, o) => Math.max(m, o.z), 0) + 1,
+    text: '', voiceMode: 'tts', pitch: 1.5, voice: null, fx: 'pon',
+  }, p);
+  items.push(it);
+  makeView(it);
+  saveSoon(it);
+  const v = views.get(it.id);
+  v.inner.classList.add('a-boing');
+  return it;
+}
+
+/* ---------- スタンプ ---------- */
+const stampSheet = $('#stampSheet');
+const grid = $('#stampGrid');
+STAMPS.forEach(([char, text, fx]) => {
+  const b = document.createElement('button');
+  const e1 = document.createElement('span'); e1.className = 'e'; e1.textContent = char;
+  const t1 = document.createElement('span'); t1.className = 't'; t1.textContent = text;
+  b.append(e1, t1);
+  b.onclick = () => {
+    stampSheet.hidden = true;
+    const it = addItem({ kind: 'emoji', char, text, fx });
+    hit(it, it.x * stageSize().W, it.y * stageSize().H);
+  };
+  grid.appendChild(b);
+});
+$('#addStamp').onclick = () => stampSheet.hidden = false;
+$('#stampClose').onclick = () => stampSheet.hidden = true;
+stampSheet.addEventListener('pointerdown', e => { if (e.target === stampSheet) stampSheet.hidden = true; });
+
+/* ---------- 背景 ---------- */
+const BG_COUNT = 5;
+let bg = +pref.get('bg', 0) % BG_COUNT || 0;
+stage.className = 'bg' + bg;
+$('#bgBtn').onclick = () => {
+  bg = (bg + 1) % BG_COUNT;
+  stage.className = 'bg' + bg;
+  pref.set('bg', bg);
+  FX.pon.play();
+};
+
+/* ---------- 設定シート ---------- */
+const sheet = $('#sheet');
+const fText = $('#fText'), fPitch = $('#fPitch'), fSize = $('#fSize');
+const fVoice = $('#fVoice'), fFx = $('#fFx');
+const recBtn = $('#recBtn'), recState = $('#recState');
+let cur = null;
+
+Object.entries(FX).forEach(([k, f]) => {
+  const b = document.createElement('button');
+  b.dataset.fx = k; b.textContent = f.label;
+  b.onclick = () => { if (!cur) return; cur.fx = k; f.play(); refreshSheet(); saveSoon(cur); };
+  fFx.appendChild(b);
+});
+fVoice.querySelectorAll('button').forEach(b => b.onclick = () => {
+  if (!cur) return;
+  cur.voiceMode = b.dataset.v; refreshSheet(); saveSoon(cur);
+});
+
+function openSheet(it) {
+  cur = it;
+  fText.value = it.text || '';
+  fPitch.value = it.pitch;
+  fSize.value = it.s;
+  refreshSheet();
+  sheet.hidden = false;
+}
+function refreshSheet() {
+  fVoice.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === cur.voiceMode));
+  fFx.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.fx === cur.fx));
+  $('#ttsBox').hidden = cur.voiceMode !== 'tts';
+  $('#recBox').hidden = cur.voiceMode !== 'rec';
+  $('#playRecBtn').disabled = !cur.voice;
+  if (!recorder) recState.textContent = cur.voice ? 'ろくおん ずみ ✔' : 'まだ ろくおん してないよ（最大5びょう）';
+}
+function closeSheet() {
+  stopRec();
+  sheet.hidden = true;
+  if (cur) saveSoon(cur);
+  cur = null;
+}
+fText.addEventListener('input', () => { if (cur) { cur.text = fText.value; saveSoon(cur); } });
+fPitch.addEventListener('input', () => { if (cur) { cur.pitch = +fPitch.value; saveSoon(cur); } });
+fSize.addEventListener('input', () => { if (cur) { cur.s = +fSize.value; layout(cur); saveSoon(cur); } });
+$('#tryBtn').onclick = () => { unlockAudio(); speak(cur.text || 'こんにちは', cur.pitch); };
+$('#playRecBtn').onclick = () => cur && playVoice(cur);
+$('#closeBtn').onclick = closeSheet;
+sheet.addEventListener('pointerdown', e => { if (e.target === sheet) closeSheet(); });
+$('#delBtn').onclick = () => {
+  if (!cur || !confirm('この しゃしんを けしますか？')) return;
+  const it = cur;
+  closeSheet();
+  const v = views.get(it.id);
+  v.el.remove(); v.bubble?.remove();
+  if (v.url) URL.revokeObjectURL(v.url);
+  views.delete(it.id);
+  voiceBuffers.delete(it.id);
+  items = items.filter(o => o !== it);
+  clearTimeout(saveTimers.get(it.id));
+  DB.del(it.id);
+};
+
+/* ---------- 録音 ---------- */
+let recorder = null, recStream = null, recTimer = null;
+recBtn.onclick = async () => {
+  if (recorder) { stopRec(); return; }
+  if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+    alert('この ブラウザでは ろくおん できません（https で ひらいてね）');
+    return;
+  }
+  try {
+    recStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (e) {
+    alert('マイクが つかえませんでした。せっていで マイクを きょかしてね');
+    return;
+  }
+  const type = ['audio/mp4', 'audio/webm;codecs=opus', 'audio/webm'].find(t => MediaRecorder.isTypeSupported?.(t));
+  const chunks = [];
+  const target = cur;
+  recorder = new MediaRecorder(recStream, type ? { mimeType: type } : undefined);
+  recorder.ondataavailable = e => e.data.size && chunks.push(e.data);
+  recorder.onstop = () => {
+    recStream.getTracks().forEach(t => t.stop());
+    recorder = null; recStream = null;
+    recBtn.classList.remove('rec'); recBtn.textContent = '● ろくおん';
+    if (chunks.length && target) {
+      target.voice = new Blob(chunks, { type: chunks[0].type || type || 'audio/mp4' });
+      voiceBuffers.delete(target.id);
+      saveSoon(target);
+      playVoice(target);
+    }
+    if (cur) refreshSheet();
+  };
+  recorder.start();
+  recBtn.classList.add('rec'); recBtn.textContent = '■ とめる';
+  let left = 5;
+  recState.textContent = `ろくおん ちゅう… ${left}`;
+  recTimer = setInterval(() => {
+    left--;
+    recState.textContent = `ろくおん ちゅう… ${left}`;
+    if (left <= 0) stopRec();
+  }, 1000);
+};
+function stopRec() {
+  clearInterval(recTimer);
+  if (recorder && recorder.state !== 'inactive') recorder.stop();
+}
+
+/* ---------- はじめる ---------- */
+(async () => {
+  await DB.open();
+  const saved = await DB.all();
+  if (saved && saved.length) {
+    items = saved.sort((a, b) => a.z - b.z);
+    items.forEach(makeView);
+  } else {
+    // はじめてのときのサンプル
+    addItem({ kind: 'emoji', char: '💩', text: 'うんこっこ！', fx: 'puu', x: 0.28, y: 0.55, rot: -6 });
+    addItem({ kind: 'emoji', char: '🐶', text: 'わんわん！', fx: 'pon', x: 0.55, y: 0.4, rot: 5 });
+    addItem({ kind: 'emoji', char: '🚗', text: 'ブッブー！', fx: 'pyun', x: 0.75, y: 0.65, rot: 0 });
+  }
+  hint.classList.add('show');
+  hintTimer = setTimeout(() => hint.classList.remove('show'), 3000);
+})();
+</script>
+</body>
+</html>
