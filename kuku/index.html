@@ -118,6 +118,7 @@
   <div class="row" style="margin-top:8px">
     <button class="btn small gray" id="sndBtn" onclick="toggleSound()">🔊 おと</button>
     <button class="btn small gray" id="spkBtn" onclick="toggleSpeak()">🗣️ よみあげ</button>
+    <button class="btn small gray" id="fsBtn" onclick="toggleFull()">⛶ ぜんがめん</button>
   </div>
 </section>
 
@@ -231,6 +232,8 @@ const SFX={
   tick(){tone(1000,0,.04,'square',.05)}
 };
 function say(text){if(!D.speak||!('speechSynthesis' in window))return;try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.lang='ja-JP';u.rate=.95;speechSynthesis.speak(u)}catch(e){}}
+function toggleFull(){const el=document.documentElement;try{if(document.fullscreenElement)document.exitFullscreen();else(el.requestFullscreen||el.webkitRequestFullscreen).call(el)}catch(e){}}
+if(!(document.documentElement.requestFullscreen||document.documentElement.webkitRequestFullscreen))document.getElementById('fsBtn').style.display='none';
 function toggleSound(){D.sound=!D.sound;save();refreshToggles()}
 function toggleSpeak(){D.speak=!D.speak;save();refreshToggles()}
 function refreshToggles(){
