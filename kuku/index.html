@@ -7,7 +7,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="九九とっくん">
 <meta name="theme-color" content="#ffd166">
-<title>九九とっくん！</title>
+<title>うんこ九九とっくん！</title>
 <style>
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{margin:0;height:100%;overscroll-behavior:none}
@@ -105,15 +105,18 @@
 
 <!-- ホーム -->
 <section id="home" class="screen on">
-  <h1>九九とっくん！</h1>
-  <div id="mascot">🐱</div>
+  <h1 style="font-size:1.9rem;white-space:nowrap">💩うんこ九九とっくん！💩</h1>
+  <div id="mascot">💩</div>
   <div class="row">
-    <span class="chip">⭐ <span id="homeStars">0</span></span>
+    <span class="chip">💩 <span id="homeStars">0</span>こ</span>
     <span class="chip">🔥 <span id="homeStreak">0</span>にち れんぞく</span>
+  </div>
+  <p class="sub">せいかいすると うんこが たまるよ！</p>
+  <div class="row" style="display:none">
   </div>
   <button class="btn blue" onclick="go('select')"><span class="em">📘</span>れんしゅう</button>
   <button class="btn orange" onclick="startTime()"><span class="em">⏱️</span>タイムアタック</button>
-  <button class="btn red" onclick="go('bossSelect')"><span class="em">🐲</span>ボスバトル</button>
+  <button class="btn red" onclick="go('bossSelect')"><span class="em">💩</span>ボスバトル</button>
   <button class="btn purple" onclick="go('records')"><span class="em">🏆</span>きろく</button>
   <div class="row" style="margin-top:8px">
     <button class="btn small gray" id="sndBtn" onclick="toggleSound()">🔊 おと</button>
@@ -131,7 +134,7 @@
 <!-- ボスえらび -->
 <section id="bossSelect" class="screen">
   <div class="topbar"><button onclick="go('home')">◀</button><span>どの ボスと たたかう？</span><span></span></div>
-  <p class="sub">10もん れんぞく！ 3かい まちがえたら まけ</p>
+  <p class="sub">うんこモンスターと しょうぶ！ 10もん れんぞく、3かい まちがえたら まけ</p>
   <div class="dangrid" id="bossgrid"></div>
 </section>
 
@@ -147,7 +150,7 @@
   <div id="qbox"></div>
   <div id="yomi"></div>
   <div id="feedback"></div>
-  <div class="char" id="char">🐱</div>
+  <div class="char" id="char">💩</div>
   <div class="keypad" id="keypad"></div>
 </section>
 
@@ -254,7 +257,7 @@ const BADGES=[
   {id:'lastboss',em:'👑',name:'ラスボス げきは',test:()=>D.boss.includes(10)},
   {id:'streak3',em:'📅',name:'3にち れんぞく',test:()=>D.streak>=3},
   {id:'streak7',em:'🗓️',name:'7にち れんぞく',test:()=>D.streak>=7},
-  {id:'star100',em:'🌟',name:'スター100こ',test:()=>D.stars>=100},
+  {id:'star100',em:'💩',name:'うんこ100こ',test:()=>D.stars>=100},
   {id:'allstar',em:'🏅',name:'ぜんだん 3つぼし',test:()=>[1,2,3,4,5,6,7,8,9].every(a=>danStars(a)>=3)},
 ];
 function checkBadges(){const got=[];BADGES.forEach(b=>{if(!D.badges.includes(b.id)&&b.test()){D.badges.push(b.id);got.push(b)}});if(got.length)save();return got}
@@ -275,7 +278,7 @@ function renderSelect(){
   const weak=weakList();
   const wk=document.createElement('button');wk.className='dan wide';wk.textContent='にがてだけ（'+weak.length+'もん）';wk.disabled=!weak.length;wk.style.opacity=weak.length?1:.4;wk.onclick=()=>startWeak();g.appendChild(wk);
 }
-const BOSSES=['','🐛','🐸','🐺','🦊','🐗','🦁','🐻','🦖','🐲','👹'];
+const BOSSES=['','💩','💩💩','💩🔥','💩❄️','💩⚡','💩🌪️','💩🌋','💩🐲','💩👹','👑💩👑'];
 function renderBossSelect(){
   const g=document.getElementById('bossgrid');g.innerHTML='';
   for(let a=1;a<=9;a++){const b=document.createElement('button');b.className='dan';const done=D.boss.includes(a);b.innerHTML='<span style="font-size:2.2rem">'+BOSSES[a]+'</span><br>'+a+'のだん<span class="stars">'+(done?'✅ クリア':'')+'</span>';b.onclick=()=>startBoss(a);g.appendChild(b)}
@@ -348,13 +351,13 @@ function submit(){
   s.t.push(dt);if(s.t.length>10)s.t.shift();
   if(ok){
     s.c++;s.streak++;G.correct++;G.combo++;G.maxCombo=Math.max(G.maxCombo,G.combo);
-    fb.textContent=['せいかい！','すごい！','やったね！','さすが！','てんさい！'][Math.min(4,Math.floor(G.combo/3))];fb.className='ok';
-    ch.textContent=['🐱','😺','😸','😻','🤩'][Math.min(4,Math.floor(G.combo/3))];ch.className='char happy';
+    fb.textContent=['せいかい！💩','すごい！💩💩','やったね！💩💩💩','さすが！✨💩✨','うんこマスター！👑💩'][Math.min(4,Math.floor(G.combo/3))];fb.className='ok';
+    ch.textContent=['💩','💩✨','💩💫','🌈💩','👑💩👑'][Math.min(4,Math.floor(G.combo/3))];ch.className='char happy';
     SFX.ok();say(yomi(a,b));
     if(G.mode==='boss'){G.hp--;const ba=document.getElementById('bossArea');ba.classList.remove('hit');void ba.offsetWidth;ba.classList.add('hit')}
   }else{
     s.w++;s.streak=0;G.wrong++;G.combo=0;G.wrongs.push([a,b]);
-    fb.innerHTML='ざんねん… こたえは <b>'+ans+'</b>';fb.className='ng';ch.textContent='😿';
+    fb.innerHTML='💩 ざんねん… こたえは <b>'+ans+'</b>';fb.className='ng';ch.textContent='💩💦';
     SFX.ng();say(yomi(a,b));
     if(G.mode==='boss')G.miss++;
     if(G.mode==='practice'&&!G.weak)G.queue.push([a,b]);  // 間違えた問題は最後にもう一度
@@ -373,26 +376,26 @@ function finish(){
   clearInterval(timer);const g=G;G=null;
   D.plays++;D.maxCombo=Math.max(D.maxCombo,g.maxCombo);
   const sec=Math.round((Date.now()-g.startAt)/1000);
-  let stars=0,title='',body='',win=true,char='😺';
+  let stars=0,title='',body='',win=true,char='💩';
   if(g.mode==='time'){
     stars=g.correct;const newBest=g.correct>D.best;if(newBest)D.best=g.correct;
-    title='タイムアタック けっか';char=newBest?'🏆':'😺';
+    title='タイムアタック けっか';char=newBest?'🏆💩':'💩';
     body='60びょうで <b>'+g.correct+'</b>もん せいかい！<br>'+(newBest?'🎉 じこベスト こうしん！':'ベスト：'+D.best+'もん');
   }else if(g.mode==='boss'){
-    win=g.hp<=0;title=win?'ボスを たおした！':'まけちゃった…';char=win?'🎉':'😿';
+    win=g.hp<=0;title=win?'💩 ボスを たおした！ 💩':'まけちゃった…💩💦';char=win?'🎉💩🎉':'💩💦';
     if(win){stars=g.bossDan===10?50:15;if(!D.boss.includes(g.bossDan))D.boss.push(g.bossDan)}
-    body=(win?BOSSES[g.bossDan]+' を たおした！':'ボスは まだ げんき…')+'<br>せいかい <b>'+g.correct+'</b>　まちがい '+g.wrong;
+    body=(win?BOSSES[g.bossDan]+' うんこモンスターを たおした！':'うんこモンスターは まだ げんき…')+'<br>せいかい <b>'+g.correct+'</b>　まちがい '+g.wrong;
   }else{
     stars=Math.max(1,Math.floor(g.correct/3));title=g.title+' おわり！';
     body='<b>'+g.correct+'</b> / '+(g.correct+g.wrong)+'もん せいかい<br>かかった じかん '+sec+'びょう<br>さいだいコンボ 🔥'+g.maxCombo;
-    char=g.wrong===0?'🤩':'😺';
+    char=g.wrong===0?'👑💩👑':'💩';
   }
   if(g.maxCombo>=10)stars+=5;
   D.stars+=stars;save();
   const got=checkBadges();
   document.getElementById('resTitle').textContent=title;
   document.getElementById('resChar').textContent=char;
-  document.getElementById('resBody').innerHTML=body+'<br>⭐ +'+stars;
+  document.getElementById('resBody').innerHTML=body+'<br>💩 +'+stars+'こ';
   document.getElementById('resBadge').innerHTML=got.length?'🎖️ バッジ ゲット！<br>'+got.map(b=>b.em+' '+b.name).join('<br>'):'';
   const w=document.getElementById('resWrongWrap');w.innerHTML='';
   const uniq=[...new Set(g.wrongs.map(q=>q.join('-')))].map(s=>s.split('-').map(Number));
@@ -403,11 +406,11 @@ function finish(){
   if(win&&(g.mode!=='practice'||g.wrong===0)){SFX.fanfare();confetti()}else if(!win)SFX.lose();else SFX.ok();
   if(got.length)setTimeout(confetti,600);
 }
-function confetti(){const cols=['#ff6b6b','#ffd166','#06d6a0','#4d96ff','#9b5de5'];for(let i=0;i<60;i++){const d=document.createElement('div');d.className='conf';d.style.left=Math.random()*100+'vw';d.style.background=cols[i%5];d.style.animationDuration=(1.5+Math.random()*1.5)+'s';d.style.animationDelay=Math.random()*.5+'s';document.body.appendChild(d);setTimeout(()=>d.remove(),3500)}}
+function confetti(){const cols=['#ff6b6b','#ffd166','#06d6a0','#4d96ff','#9b5de5'];for(let i=0;i<60;i++){const d=document.createElement('div');d.className='conf';d.style.left=Math.random()*100+'vw';if(i%2){d.textContent='💩';d.style.fontSize=(1.2+Math.random()*1.5)+'rem';d.style.width='auto';d.style.height='auto'}else d.style.background=cols[i%5];d.style.animationDuration=(1.5+Math.random()*1.5)+'s';d.style.animationDelay=Math.random()*.5+'s';document.body.appendChild(d);setTimeout(()=>d.remove(),3500)}}
 
 /* ===================== きろく ===================== */
 function renderRecords(){
-  document.getElementById('recChips').innerHTML=['⭐ '+D.stars,'⏱️ ベスト '+D.best+'もん','🔥 さいだいコンボ '+D.maxCombo,'🐲 ボス '+D.boss.length+'たい','📅 '+D.streak+'にち れんぞく','🎮 '+D.plays+'かい プレイ'].map(t=>'<span class="chip">'+t+'</span>').join('');
+  document.getElementById('recChips').innerHTML=['💩 '+D.stars+'こ','⏱️ ベスト '+D.best+'もん','🔥 さいだいコンボ '+D.maxCombo,'🐲 ボス '+D.boss.length+'たい','📅 '+D.streak+'にち れんぞく','🎮 '+D.plays+'かい プレイ'].map(t=>'<span class="chip">'+t+'</span>').join('');
   document.getElementById('badgeGrid').innerHTML=BADGES.map(b=>'<div class="badge'+(D.badges.includes(b.id)?'':' locked')+'"><span class="em">'+b.em+'</span>'+b.name+'</div>').join('');
   let h='<div></div>';for(let b=1;b<=9;b++)h+='<div class="h">×'+b+'</div>';
   for(let a=1;a<=9;a++){h+='<div class="h">'+a+'</div>';for(let b=1;b<=9;b++){const s=qstat(a,b);let c='';if(s.c+s.w>0){c=isWeak(a,b)?'r':(s.c>=3&&avgTime(s)<4000?'g':'y')}h+='<div class="'+c+'">'+(s.c+s.w?s.c+'/'+(s.c+s.w):'')+'</div>'}}
