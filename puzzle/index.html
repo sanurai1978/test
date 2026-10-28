@@ -59,6 +59,18 @@
   .seg button.on{background:#7ab8e8;color:#fff;font-weight:bold}
   #editDone{margin-left:auto;padding:12px 26px;border-radius:16px;background:#3b3a52;color:#fff;font-size:20px}
 
+  #ask{position:fixed;inset:0;z-index:9000;background:rgba(40,40,70,.45);display:flex;align-items:center;justify-content:center;padding:16px}
+  #ask .box{background:#fff;border-radius:26px;padding:26px;max-width:420px;width:100%;text-align:center;box-shadow:0 12px 30px rgba(0,0,0,.25)}
+  #ask img{width:100%;max-height:220px;object-fit:contain;border-radius:14px;background:#eef6fb}
+  #ask p{font-size:22px;margin:16px 0 20px}
+  #ask .row{display:flex;gap:14px;justify-content:center}
+  #ask .row button{flex:1;padding:14px;border-radius:16px;font-size:20px;font-weight:bold}
+  #askNo{background:#e6ecf2}
+  #askYes{background:#ff5a5a;color:#fff}
+  #toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 28px);transform:translateX(-50%);z-index:9100;
+    max-width:calc(100% - 32px);background:#3b3a52;color:#fff;padding:14px 22px;border-radius:16px;font-size:18px;
+    box-shadow:0 8px 20px rgba(0,0,0,.25);text-align:center}
+
   /* ---------- パズル ---------- */
   #play{touch-action:none;overflow:hidden}
   #home{position:absolute;top:calc(env(safe-area-inset-top) + 12px);left:calc(env(safe-area-inset-left) + 14px);
@@ -113,6 +125,20 @@
     おとなの ひとへ：<br>みぎうえの ⚙️ を ながおし して、<br>すきな しゃしんを いれてください。
   </div>
   <input id="file" type="file" accept="image/*" multiple hidden>
+</div>
+
+<!-- おとな用：けす かくにん -->
+<div id="ask" hidden>
+  <div class="box">
+    <img id="askImg" alt="">
+    <p>この しゃしんを けしますか？</p>
+    <div class="row">
+      <button id="askNo">やめる</button>
+      <button id="askYes">けす</button>
+    </div>
+  </div>
+</div>
+<div id="toast" hidden>
 </div>
 
 <!-- パズル -->
@@ -206,7 +232,7 @@
 
   async function addFiles(files) {
     for (const f of files) {
-      if (photos.length >= MAX_PHOTOS) { alert(`しゃしんは ${MAX_PHOTOS}まい までです。いらない しゃしんを けしてください。`); break; }
+      if (photos.length >= MAX_PHOTOS) { toast(`しゃしんは ${MAX_PHOTOS}まい までです。いらない しゃしんを けしてください。`); break; }
       const src = URL.createObjectURL(f);
       try {
         const img = await loadImg(src);
@@ -219,7 +245,7 @@
         await dbPut(rec);
         photos.push(toEntry(rec));
       } catch (e) {
-        alert('この しゃしんは よみこめませんでした。');
+        toast('この しゃしんは よみこめませんでした。');
       } finally { URL.revokeObjectURL(src); }
     }
     renderSelect();
@@ -231,6 +257,28 @@
     if (i >= 0) { URL.revokeObjectURL(photos[i].url); URL.revokeObjectURL(photos[i].thumb); photos.splice(i, 1); }
     renderSelect();
   }
+
+  // ---------- おしらせ・けす かくにん ----------
+  let toastTimer = 0;
+  function toast(msg) {
+    const t = $('toast');
+    t.textContent = msg;
+    t.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { t.hidden = true; }, 3500);
+  }
+  let asking = null;
+  function askDelete(p) {
+    asking = p;
+    $('askImg').src = p.thumb;
+    $('ask').hidden = false;
+  }
+  $('askNo').addEventListener('click', () => { asking = null; $('ask').hidden = true; });
+  $('askYes').addEventListener('click', () => {
+    if (asking) removePhoto(asking.id);
+    asking = null;
+    $('ask').hidden = true;
+  });
 
   // ---------- しゃしんえらび画面 ----------
   let editing = false;
@@ -244,7 +292,7 @@
       t.innerHTML = `<img src="${p.thumb}" alt=""><button class="del" aria-label="けす">×</button>`;
       t.addEventListener('click', e => {
         if (e.target.closest('.del')) {
-          if (confirm('この しゃしんを けしますか？')) removePhoto(p.id);
+          askDelete(p);
           return;
         }
         if (!editing) startPuzzle(p);
