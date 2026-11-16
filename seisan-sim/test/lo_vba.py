@@ -34,7 +34,8 @@ def transform(code):
     code = code.replace("\r\n", "\n")
     code = re.sub(r'^Attribute VB_Name.*\n', '', code, flags=re.M)
     code = re.sub(r' _\n\s*', ' ', code)          # 行継続をつなぐ
-    code = code.replace('vbObjectError + 1000', '-2147220504')   # LibreOffice は定数式の vbObjectError を受け付けない
+    code = code.replace('vbObjectError + 1000', '-2147220504')
+    code = re.sub(r'^Private Enum ', 'Public Enum ', code, flags=re.M)   # LibreOffice は Private 列挙体どうしの同名メンバーを受け付けない   # LibreOffice は定数式の vbObjectError を受け付けない
     out = []
     for line in code.split("\n"):
         body, cmt = _strip_comment(line)

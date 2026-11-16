@@ -54,6 +54,17 @@ Public Const St_シート_出荷実績 As String = "出荷実績"
 Public Const St_シート_履歴 As String = "履歴"
 Public Const St_シート_採番 As String = "採番"
 Public Const St_シート_設定 As String = "設定"
+Public Const St_シート_入力見込 As String = "入力_見込"
+Public Const St_シート_入力受注 As String = "入力_受注"
+Public Const St_シート_MRP As String = "MRP"
+Public Const St_シート_入力製造 As String = "入力_製造"
+Public Const St_シート_入力発注 As String = "入力_発注"
+Public Const St_シート_負荷一覧 As String = "負荷一覧"
+Public Const St_シート_選択肢 As String = "選択肢"        ' 入力欄のドロップダウンの候補（隠しシート）
+
+' ---- 入力シート共通の配置 ----
+Public Const St_入力_結果セル As String = "B3"              ' 入力シートの「結果」を出すセル
+Public Const St_数量エラー As String = "数量は1以上の整数で入力してください（小数可の品目は小数も入力できます）"
 
 ' ---- メニューシートの配置（Mod_初期化 が作り、Mod_メニュー が書き換える）----
 Public Const St_メニュー_事業部セル As String = "C3"     ' 現在の事業部の表示
@@ -508,4 +519,211 @@ Public Sub Pr_終了処理(ByVal Lg_番号 As Long, ByVal St_内容 As String)
     If Lg_番号 <> 0 And Lg_番号 <> Lg_中断番号 Then
         MsgBox "処理を中断しました（エラー " & Lg_番号 & "）：" & vbCrLf & St_内容, vbExclamation
     End If
+End Sub
+
+' フォームのボタンを1つ置く
+'   引数：Ws_置き場所、St_セル（左上）、Lg_幅のセル数、St_表示、St_マクロ名、St_ボタン名
+Public Sub Pr_ボタン作成(ByVal Ws_置き場所 As Worksheet, ByVal St_セル As String, ByVal Lg_幅のセル数 As Long, _
+        ByVal St_表示 As String, ByVal St_マクロ名 As String, ByVal St_ボタン名 As String)
+    Dim Rg_位置 As Range
+    Dim Ob_ボタン As Object
+    Set Rg_位置 = Ws_置き場所.Range(St_セル).Resize(1, Lg_幅のセル数)
+    Set Ob_ボタン = Ws_置き場所.Buttons.Add(Rg_位置.Left + 2, Rg_位置.Top + 1, Rg_位置.Width - 4, Rg_位置.Height + 6)
+    Ob_ボタン.Caption = St_表示
+    Ob_ボタン.OnAction = St_マクロ名
+    Ob_ボタン.Name = St_ボタン名
+End Sub
+
+' 表の中から、事業部とキーが一致する行を探す
+'   引数：Ws_表、Lg_列数、St_事業部、Lg_キー列、St_キー
+'   戻り値：シート上の行番号。無ければ 0
+Public Function Fn_行検索(ByVal Ws_表 As Worksheet, ByVal Lg_列数 As Long, ByVal St_事業部 As String, _
+        ByVal Lg_キー列 As Long, ByVal St_キー As String) As Long
+    Dim Va_表 As Variant
+    Dim Lg_行 As Long
+    Va_表 = Fn_表読込(Ws_表, Lg_列数)
+    Fn_行検索 = 0
+    For Lg_行 = 1 To Fn_行数(Va_表)
+        If Fn_文字(Va_表(Lg_行, 1)) = St_事業部 And Fn_文字(Va_表(Lg_行, Lg_キー列)) = St_キー Then
+            Fn_行検索 = Lg_行 + Lg_開始行 - 1
+            Exit Function
+        End If
+    Next Lg_行
+End Function
+
+' 品目マスタの1行を、列_品目 の番号で引ける1次元配列で返す
+'   引数：St_事業部、St_品番　戻り値：配列（Va(列_品目.区分) のように使う）。無ければ Empty
+Public Function Fn_品目情報(ByVal St_事業部 As String, ByVal St_品番 As String) As Variant
+    Dim Ws_品目 As Worksheet
+    Dim Lg_行 As Long
+    Dim Lg_列 As Long
+    Dim Va_行() As Variant
+    Set Ws_品目 = ThisWorkbook.Worksheets(St_シート_品目)
+    Lg_行 = Fn_行検索(Ws_品目, 列_品目.次列 - 1, St_事業部, 列_品目.品番, St_品番)
+    If Lg_行 = 0 Or St_品番 = "" Then
+        Fn_品目情報 = Empty
+        Exit Function
+    End If
+    ReDim Va_行(1 To 列_品目.次列 - 1)
+    For Lg_列 = 1 To 列_品目.次列 - 1
+        Va_行(Lg_列) = Ws_品目.Cells(Lg_行, Lg_列).Value
+    Next Lg_列
+    Fn_品目情報 = Va_行
+End Function
+
+' 品目が小数の数量を扱えるか（小数可が○、または単位が kg。HTML 版の dec||unit==='kg'）
+Public Function Fn_小数可か(ByVal Va_品目 As Variant) As Boolean
+    Fn_小数可か = (Fn_文字(Va_品目(列_品目.小数可)) = St_印 Or Fn_文字(Va_品目(列_品目.単位)) = "kg")
+End Function
+
+' 入力された数量を確かめて返す（HTML 版の qtyOf）
+'   引数：Va_値（セルの値）、Bl_小数可
+'   戻り値：小数2桁に丸めた数量。0 以下・数でない・整数のみの品目で小数 のときは 0
+Public Function Fn_数量変換(ByVal Va_値 As Variant, ByVal Bl_小数可 As Boolean) As Double
+    Dim Db_値 As Double
+    Fn_数量変換 = 0
+    If Fn_文字(Va_値) = "" Or Not IsNumeric(Va_値) Then Exit Function
+    Db_値 = CDbl(Va_値)
+    If Db_値 <= 0 Then Exit Function
+    If Not Bl_小数可 And Db_値 <> Int(Db_値) Then Exit Function
+    Fn_数量変換 = Fn_丸め(Db_値)
+End Function
+
+' 入力された日数（今日から何日後）を確かめて返す
+'   引数：Va_値、Lg_最小、Lg_最大　戻り値：日数。整数でない・範囲外は -1
+Public Function Fn_日数変換(ByVal Va_値 As Variant, ByVal Lg_最小 As Long, ByVal Lg_最大 As Long) As Long
+    Dim Db_値 As Double
+    Fn_日数変換 = -1
+    If Fn_文字(Va_値) = "" Or Not IsNumeric(Va_値) Then Exit Function
+    Db_値 = CDbl(Va_値)
+    If Db_値 <> Int(Db_値) Or Db_値 < Lg_最小 Or Db_値 > Lg_最大 Then Exit Function
+    Fn_日数変換 = CLng(Db_値)
+End Function
+
+' 入力の不備を伝えて中断する（入力チェックの部品から呼ぶ）
+'   引数：St_文（何が悪いか・どうすればよいか）
+Public Sub Pr_入力エラー(ByVal St_文 As String)
+    MsgBox St_文, vbExclamation, "入力を確認してください"
+    Err.Raise Lg_中断番号
+End Sub
+
+' 取り消し・削除の前に確認する。「いいえ」なら中断
+Public Sub Pr_削除確認(ByVal St_文 As String)
+    If MsgBox(St_文 & vbCrLf & vbCrLf & "よろしいですか？", vbYesNo + vbQuestion + vbDefaultButton2, "確認") = vbNo Then
+        Err.Raise Lg_中断番号
+    End If
+End Sub
+
+' 入力シートの「結果」欄に、いま行った処理の結果を書く
+Public Sub Pr_結果表示(ByVal Ws_入力 As Worksheet, ByVal St_文 As String)
+    Ws_入力.Range(St_入力_結果セル).Value = "結果：" & St_文 & "（" & Format$(Now, "hh:nn") & "）"
+End Sub
+
+' データシートの、現在の事業部の行を入力シートの下側に写す（新しいものを上に）
+'   引数：Ws_出力、Lg_開始行（見出しを書く行）、St_元シート、Lg_列数、St_事業部、St_題名
+'   入力シートで、いま操作した結果をその場で見られるようにするため（元のデータはデータシート）。
+Public Sub Pr_一覧転記(ByVal Ws_出力 As Worksheet, ByVal Lg_開始行 As Long, ByVal St_元シート As String, _
+        ByVal Lg_列数 As Long, ByVal St_事業部 As String, ByVal St_題名 As String)
+    Dim Ws_元 As Worksheet
+    Dim Va_表 As Variant
+    Dim Va_出力() As Variant
+    Dim Lg_行 As Long
+    Dim Lg_列 As Long
+    Dim Lg_件数 As Long
+    Set Ws_元 = ThisWorkbook.Worksheets(St_元シート)
+    Va_表 = Fn_表読込(Ws_元, Lg_列数)
+    ' 前回の一覧を消す
+    Ws_出力.Range(Ws_出力.Cells(Lg_開始行, 1), Ws_出力.Cells(Ws_出力.Rows.Count, Lg_列数 + 1)).Clear
+    Ws_出力.Cells(Lg_開始行, 2).Value = "■ " & St_題名 & "（" & Fn_事業部名(St_事業部) & "。新しいものが上。元のデータは「" & St_元シート & "」シート）"
+    Ws_出力.Cells(Lg_開始行, 2).Font.Bold = True
+    ' 見出し（事業部の列を除く）
+    For Lg_列 = 2 To Lg_列数
+        Ws_出力.Cells(Lg_開始行 + 1, Lg_列).Value = Ws_元.Cells(Lg_見出し行, Lg_列).Value
+    Next Lg_列
+    With Ws_出力.Range(Ws_出力.Cells(Lg_開始行 + 1, 2), Ws_出力.Cells(Lg_開始行 + 1, Lg_列数))
+        .Font.Bold = True
+        .Interior.Color = RGB(221, 235, 247)
+    End With
+    ' 現在の事業部の行を、下から（新しい順に）集める
+    Lg_件数 = 0
+    For Lg_行 = Fn_行数(Va_表) To 1 Step -1
+        If Fn_文字(Va_表(Lg_行, 1)) = St_事業部 Then Lg_件数 = Lg_件数 + 1
+    Next Lg_行
+    If Lg_件数 = 0 Then
+        Ws_出力.Cells(Lg_開始行 + 2, 2).Value = "（ありません）"
+        Exit Sub
+    End If
+    ReDim Va_出力(1 To Lg_件数, 1 To Lg_列数 - 1)
+    Lg_件数 = 0
+    For Lg_行 = Fn_行数(Va_表) To 1 Step -1
+        If Fn_文字(Va_表(Lg_行, 1)) = St_事業部 Then
+            Lg_件数 = Lg_件数 + 1
+            For Lg_列 = 2 To Lg_列数
+                Va_出力(Lg_件数, Lg_列 - 1) = Va_表(Lg_行, Lg_列)
+            Next Lg_列
+        End If
+    Next Lg_行
+    Ws_出力.Range(Ws_出力.Cells(Lg_開始行 + 2, 2), Ws_出力.Cells(Lg_開始行 + 1 + Lg_件数, Lg_列数)).Value = Va_出力
+    ' 表示形式は元のシートの2行目に合わせる（日付を数字で見せないため）
+    For Lg_列 = 2 To Lg_列数
+        Ws_出力.Range(Ws_出力.Cells(Lg_開始行 + 2, Lg_列), Ws_出力.Cells(Lg_開始行 + 1 + Lg_件数, Lg_列)).NumberFormat = _
+            Ws_元.Cells(Lg_開始行, Lg_列).NumberFormat
+    Next Lg_列
+End Sub
+
+' 入力シートの土台（題名・説明・結果欄）を作る（初期化から呼ぶ）
+'   引数：Ws_入力、St_題名、St_説明
+Public Sub Pr_入力シート枠(ByVal Ws_入力 As Worksheet, ByVal St_題名 As String, ByVal St_説明 As String)
+    Ws_入力.Cells.Clear
+    Ws_入力.Columns("A").ColumnWidth = 2
+    Ws_入力.Columns("B").ColumnWidth = 24
+    Ws_入力.Columns("C:L").ColumnWidth = 13
+    Ws_入力.Range("B1").Value = St_題名
+    Ws_入力.Range("B1").Font.Size = 14
+    Ws_入力.Range("B1").Font.Bold = True
+    Ws_入力.Range("B2").Value = St_説明
+    Ws_入力.Range(St_入力_結果セル).Value = "結果："
+    Ws_入力.Range(St_入力_結果セル).Font.Color = RGB(0, 97, 0)
+End Sub
+
+' 入力欄を1つ作る（見出しと、入力するセル。入力セルは黄色）
+'   引数：Ws_入力、St_セル（入力するセル。見出しはその左）、St_見出し、Va_初期値、St_候補（ドロップダウンの名前。空なら無し）
+Public Sub Pr_入力欄(ByVal Ws_入力 As Worksheet, ByVal St_セル As String, ByVal St_見出し As String, _
+        ByVal Va_初期値 As Variant, ByVal St_候補 As String)
+    Ws_入力.Range(St_セル).Offset(0, -1).Value = St_見出し
+    Ws_入力.Range(St_セル).Value = Va_初期値
+    Ws_入力.Range(St_セル).Interior.Color = RGB(255, 255, 204)
+    Ws_入力.Range(St_セル).Borders.LineStyle = xlContinuous
+    If St_候補 <> "" Then
+        Ws_入力.Range(St_セル).Validation.Delete
+        Ws_入力.Range(St_セル).Validation.Add Type:=xlValidateList, AlertStyle:=xlValidAlertStop, Formula1:="=" & St_候補
+    End If
+End Sub
+
+' 入力シートの見出し（■ ○○）を書く
+Public Sub Pr_入力見出し(ByVal Ws_入力 As Worksheet, ByVal St_セル As String, ByVal St_文 As String)
+    Ws_入力.Range(St_セル).Value = "■ " & St_文
+    Ws_入力.Range(St_セル).Font.Bold = True
+End Sub
+
+' データシートの行を消す（下の行から順に消す。行番号がずれないように）
+'   引数：Ws_表、Va_行（シート上の行番号の配列）
+Public Sub Pr_行削除(ByVal Ws_表 As Worksheet, ByVal Va_行 As Variant)
+    Dim Lg_添字 As Long
+    Dim Lg_比較 As Long
+    Dim Va_一時 As Variant
+    If IsEmpty(Va_行) Then Exit Sub
+    ' 大きい行番号から順に並べる
+    For Lg_添字 = LBound(Va_行) To UBound(Va_行) - 1
+        For Lg_比較 = Lg_添字 + 1 To UBound(Va_行)
+            If Va_行(Lg_比較) > Va_行(Lg_添字) Then
+                Va_一時 = Va_行(Lg_添字)
+                Va_行(Lg_添字) = Va_行(Lg_比較)
+                Va_行(Lg_比較) = Va_一時
+            End If
+        Next Lg_比較
+    Next Lg_添字
+    For Lg_添字 = LBound(Va_行) To UBound(Va_行)
+        Ws_表.Rows(Va_行(Lg_添字)).Delete
+    Next Lg_添字
 End Sub

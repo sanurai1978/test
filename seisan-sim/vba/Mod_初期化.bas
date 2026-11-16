@@ -15,7 +15,7 @@ Option Explicit
 ' 【処理の流れ】
 '   0. 変数格納 → 1. 実行確認 → 2. 画面停止 → 3. シート作り直し
 '   → 4. 見出し → 5. マスタ投入 → 6. 採番・設定 → 7. 伝票投入
-'   → 8. 書式 → 9. メニュー作成 → 10. 計算列・件数 → 11. 完了表示
+'   → 8. 書式 → 9. メニュー・入力シート作成 → 10. 計算列・件数 → 11. 完了表示
 '==============================================================
 
 Private Const St_作業用シート As String = "作業用_初期化"   ' 全シート削除のあいだだけ置くシート
@@ -40,8 +40,9 @@ Public Sub Pr_初期化()
     Call Pr_伝票投入                                        ' 7. 見込・受注・製造指図などを入れる（途中の業務状態を再現）
     Call Pr_書式設定                                        ' 8. 見出し色・日付書式・列幅をそろえる（一覧として見やすく）
     Call Pr_メニュー作成                                    ' 9. メニューの表示とボタンを作る（業務の入口）
+    Call Pr_入力シート作成                                  ' 9b. 入力シートとMRPシートを作る（値を入れてボタンを押す画面）
     Call Pr_品目計算列更新                                  ' 10. 標準原価・販売単価を計算（品目の計算列を埋める）
-    Call Pr_メニュー件数更新                                ' 10b. 件数を表示（状況をひと目で見せる）
+    Call Pr_画面最新化                                      ' 10b. 件数・一覧・選択肢を表示（状況をひと目で見せる）
     Call Pr_完了表示                                        ' 11. メニューを開いて完了を伝える（次の操作を案内）
 
 終了処理:
@@ -94,11 +95,12 @@ End Sub
 
 ' ブック内のシートの並び（段階2以降で入力シートをここに足す）
 Private Function Fn_シート順() As Variant
-    Fn_シート順 = Array(St_シート_メニュー, St_シート_在庫一覧, _
+    Fn_シート順 = Array(St_シート_メニュー, St_シート_入力見込, St_シート_入力受注, St_シート_MRP, _
+        St_シート_入力製造, St_シート_入力発注, St_シート_負荷一覧, St_シート_在庫一覧, _
         St_シート_品目, St_シート_BOM, St_シート_作業区, St_シート_工程表, _
         St_シート_見込, St_シート_受注, St_シート_製造指図, St_シート_指図工程, _
         St_シート_発注, St_シート_外注注文, St_シート_ピッキング, St_シート_ピッキング明細, _
-        St_シート_出荷実績, St_シート_履歴, St_シート_採番, St_シート_設定)
+        St_シート_出荷実績, St_シート_履歴, St_シート_採番, St_シート_設定, St_シート_選択肢)
 End Function
 
 ' 各データシートの見出しを書く（並びは Mod_共通定義 の列挙体と同じ）
@@ -505,10 +507,17 @@ Private Sub Pr_メニュー作成()
     Ws_メニュー.Range("C5:F6").HorizontalAlignment = xlCenter
     Ws_メニュー.Range("C6:F6").Font.Size = 16
     Ws_メニュー.Range(St_メニュー_要手配セル).Value = "未計算"
-    ' 業務の流れ（段階2以降でボタンを足す）
+    ' 業務の流れ（左から順に。入力シートへ移動するボタンと、更新して表示するボタン）
     Ws_メニュー.Range("B8").Value = "■ 業務の流れ"
     Ws_メニュー.Range("B8").Font.Bold = True
-    Call Pr_ボタン作成(Ws_メニュー, "B9", 2, "在庫一覧（更新）", "Pr_在庫一覧更新", "業務_在庫一覧")
+    Call Pr_ボタン作成(Ws_メニュー, "B9", 1, "1. 見込", "Pr_シート移動", St_移動ボタン接頭 & St_シート_入力見込)
+    Call Pr_ボタン作成(Ws_メニュー, "C9", 1, "2. 受注", "Pr_シート移動", St_移動ボタン接頭 & St_シート_入力受注)
+    Call Pr_ボタン作成(Ws_メニュー, "D9", 1, "3. MRP", "Pr_シート移動", St_移動ボタン接頭 & St_シート_MRP)
+    Call Pr_ボタン作成(Ws_メニュー, "E9", 1, "4. 負荷一覧", "Pr_負荷一覧更新", "業務_負荷一覧")
+    Call Pr_ボタン作成(Ws_メニュー, "F9", 1, "5. 製造", "Pr_シート移動", St_移動ボタン接頭 & St_シート_入力製造)
+    Call Pr_ボタン作成(Ws_メニュー, "G9", 1, "6. 発注", "Pr_シート移動", St_移動ボタン接頭 & St_シート_入力発注)
+    Call Pr_ボタン作成(Ws_メニュー, "H9", 1, "在庫一覧", "Pr_在庫一覧更新", "業務_在庫一覧")
+    Ws_メニュー.Range("B10").Value = "（負荷一覧・在庫一覧のボタンは、計算し直してから開きます）"
     ' マスタ（シートを直接編集）
     Ws_メニュー.Range("B12").Value = "■ マスタ（シートを直接編集する）"
     Ws_メニュー.Range("B12").Font.Bold = True
@@ -527,6 +536,18 @@ Private Sub Pr_メニュー作成()
     Ws_メニュー.Range("B24").Value = "品目シートの黄色の列（在庫数）はマクロが書きます。灰色の列（標準原価・適用販売単価）は計算結果です。"
 End Sub
 
+' 入力シート・MRP シートを作る（配置は各モジュールが持つ）。選択肢シートは隠す
+Private Sub Pr_入力シート作成()
+    Call Pr_選択肢更新                  ' 入力欄のドロップダウンが参照する名前を先に作る
+    Call Pr_入力見込シート作成
+    Call Pr_入力受注シート作成
+    Call Pr_MRPシート作成
+    Call Pr_入力製造シート作成
+    Call Pr_入力発注シート作成
+    Call Pr_タブ色(Array(St_シート_入力見込, St_シート_入力受注, St_シート_MRP, St_シート_入力製造, St_シート_入力発注, St_シート_負荷一覧), RGB(91, 155, 213))
+    ThisWorkbook.Worksheets(St_シート_選択肢).Visible = xlSheetHidden
+End Sub
+
 ' 1行に移動ボタンを並べる（ボタン名は「移動_シート名」。Mod_メニュー の Pr_シート移動 が行き先に使う）
 Private Sub Pr_移動ボタン列(ByVal Ws_メニュー As Worksheet, ByVal Lg_行 As Long, ByVal Va_名前 As Variant)
     Dim Lg_添字 As Long
@@ -536,18 +557,6 @@ Private Sub Pr_移動ボタン列(ByVal Ws_メニュー As Worksheet, ByVal Lg_行 As Long,
     Next Lg_添字
 End Sub
 
-' フォームのボタンを1つ置く
-'   引数：Ws_置き場所、St_セル（左上）、Lg_幅のセル数、St_表示、St_マクロ名、St_ボタン名
-Private Sub Pr_ボタン作成(ByVal Ws_置き場所 As Worksheet, ByVal St_セル As String, ByVal Lg_幅のセル数 As Long, _
-        ByVal St_表示 As String, ByVal St_マクロ名 As String, ByVal St_ボタン名 As String)
-    Dim Rg_位置 As Range
-    Dim Ob_ボタン As Object
-    Set Rg_位置 = Ws_置き場所.Range(St_セル).Resize(1, Lg_幅のセル数)
-    Set Ob_ボタン = Ws_置き場所.Buttons.Add(Rg_位置.Left + 2, Rg_位置.Top + 1, Rg_位置.Width - 4, Rg_位置.Height + 6)
-    Ob_ボタン.Caption = St_表示
-    Ob_ボタン.OnAction = St_マクロ名
-    Ob_ボタン.Name = St_ボタン名
-End Sub
 
 ' メニューを開いて完了を伝える
 Private Sub Pr_完了表示()
