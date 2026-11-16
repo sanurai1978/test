@@ -1,0 +1,25 @@
+Option VBASupport 1
+Option Explicit
+' 試験専用：MsgBox の代わり（画面を出さずに記録する）と、試験の入口。
+Public St_試験記録 As String
+Public Va_試験応答 As Variant
+Public Lg_応答位置 As Long
+Public Sub Pr_試験表示(Optional Va_文 As Variant, Optional Va_種類 As Variant, Optional Va_題 As Variant)
+    St_試験記録 = St_試験記録 & "[MSG]" & CStr(Va_文) & Chr(10)
+End Sub
+Public Function Fn_試験応答(Optional Va_文 As Variant, Optional Va_種類 As Variant, Optional Va_題 As Variant) As Long
+    Dim Lg_答 As Long
+    Lg_答 = 6
+    If Not IsEmpty(Va_試験応答) Then
+        If Lg_応答位置 <= UBound(Va_試験応答) Then
+            Lg_答 = Va_試験応答(Lg_応答位置)
+            Lg_応答位置 = Lg_応答位置 + 1
+        End If
+    End If
+    St_試験記録 = St_試験記録 & "[ASK→" & Lg_答 & "]" & CStr(Va_文) & Chr(10)
+    Fn_試験応答 = Lg_答
+End Function
+Public Function Fn_試験記録取出() As String
+    Fn_試験記録取出 = St_試験記録
+    St_試験記録 = ""
+End Function

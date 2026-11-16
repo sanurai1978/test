@@ -1,0 +1,83 @@
+Option VBASupport 1
+Option ClassModule
+Option Explicit
+' 試験専用：LibreOffice には Scripting.Dictionary が無いので、その代わり。
+' 値は数値・文字だけ（オブジェクトは入れない）。Excel 用のコードには含めない。
+Private Va_鍵() As Variant
+Private Va_値() As Variant
+Private Lg_数 As Long
+Private Sub Class_Initialize()
+    Lg_数 = 0
+    ReDim Va_鍵(0 To 15)
+    ReDim Va_値(0 To 15)
+End Sub
+Private Function Fn_位置(Va_k As Variant) As Long
+    Dim Lg_i As Long
+    For Lg_i = 0 To Lg_数 - 1
+        If CStr(Va_鍵(Lg_i)) = CStr(Va_k) Then
+            Fn_位置 = Lg_i
+            Exit Function
+        End If
+    Next
+    Fn_位置 = -1
+End Function
+Public Function Exists(Va_k As Variant) As Boolean
+    Exists = (Fn_位置(Va_k) >= 0)
+End Function
+Public Sub Add(Va_k As Variant, Va_v As Variant)
+    If Fn_位置(Va_k) >= 0 Then Err.Raise 457, , "キーが重複しています：" & Va_k
+    If Lg_数 > UBound(Va_鍵) Then
+        ReDim Preserve Va_鍵(0 To Lg_数 * 2)
+        ReDim Preserve Va_値(0 To Lg_数 * 2)
+    End If
+    Va_鍵(Lg_数) = Va_k
+    Va_値(Lg_数) = Va_v
+    Lg_数 = Lg_数 + 1
+End Sub
+Public Function Fn_取得(Va_k As Variant) As Variant
+    Dim Lg_p As Long
+    Lg_p = Fn_位置(Va_k)
+    If Lg_p < 0 Then
+        Call Add(Va_k, Empty)
+        Fn_取得 = Empty
+    Else
+        Fn_取得 = Va_値(Lg_p)
+    End If
+End Function
+Public Sub Pr_設定(Va_k As Variant, Va_v As Variant)
+    Dim Lg_p As Long
+    Lg_p = Fn_位置(Va_k)
+    If Lg_p < 0 Then
+        Call Add(Va_k, Va_v)
+    Else
+        Va_値(Lg_p) = Va_v
+    End If
+End Sub
+Public Sub Remove(Va_k As Variant)
+    Dim Lg_p As Long, Lg_i As Long
+    Lg_p = Fn_位置(Va_k)
+    If Lg_p < 0 Then Err.Raise 32811
+    For Lg_i = Lg_p To Lg_数 - 2
+        Va_鍵(Lg_i) = Va_鍵(Lg_i + 1)
+        Va_値(Lg_i) = Va_値(Lg_i + 1)
+    Next
+    Lg_数 = Lg_数 - 1
+End Sub
+Public Sub RemoveAll()
+    Lg_数 = 0
+End Sub
+Public Property Get Count() As Long
+    Count = Lg_数
+End Property
+Public Function Keys() As Variant
+    Dim Va_r() As Variant, Lg_i As Long
+    If Lg_数 = 0 Then
+        Keys = Array()
+        Exit Function
+    End If
+    ReDim Va_r(0 To Lg_数 - 1)
+    For Lg_i = 0 To Lg_数 - 1
+        Va_r(Lg_i) = Va_鍵(Lg_i)
+    Next
+    Keys = Va_r
+End Function
