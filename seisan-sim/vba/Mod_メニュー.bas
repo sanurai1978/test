@@ -108,6 +108,11 @@ Public Sub Pr_画面最新化()
     Call Pr_入力受注再表示
     Call Pr_入力製造再表示
     Call Pr_入力発注再表示
+    Call Pr_工程一覧再表示
+    Call Pr_入力ピッキング再表示
+    Call Pr_入力外注再表示
+    Call Pr_入力出荷再表示
+    Call Pr_入力在庫調整再表示
 End Sub
 
 ' メニューの件数（受注残・要手配・製造中・出荷待ち）を現在の事業部の値で書き直す

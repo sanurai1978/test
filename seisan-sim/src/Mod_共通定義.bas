@@ -60,6 +60,10 @@ Public Const St_シート_MRP As String = "MRP"
 Public Const St_シート_入力製造 As String = "入力_製造"
 Public Const St_シート_入力発注 As String = "入力_発注"
 Public Const St_シート_負荷一覧 As String = "負荷一覧"
+Public Const St_シート_入力ピッキング As String = "入力_ピッキング"
+Public Const St_シート_入力外注 As String = "入力_外注"
+Public Const St_シート_入力出荷 As String = "入力_出荷"
+Public Const St_シート_入力在庫調整 As String = "入力_在庫調整"
 Public Const St_シート_選択肢 As String = "選択肢"        ' 入力欄のドロップダウンの候補（隠しシート）
 
 ' ---- 入力シート共通の配置 ----
